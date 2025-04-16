@@ -1,0 +1,427 @@
+---
+title: "Decision Tree Classification and Evaluation"
+author: "Ahsan Ahmad"
+date: "March 10, 2024"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE, warning = FALSE)
+```
+
+# Libraries
+
+```{r library}
+library(tidyverse)
+library(psych)
+library(RWeka)
+library(rmarkdown)
+library(scatterplot3d)
+library(caret)
+library(C50)
+library(rminer)
+```
+
+# Import a csv file and changing categorical data to factors
+
+Before proceeding with the analysis, it's essential to set up the working directory and import the data from a CSV file named 'CD_additional_balanced-1.csv'. This code chunk also inspects the structure of the dataset and converts categorical variables into factors for further analysis.
+
+```{r Set up, data import and inspection}
+
+# Setting up working directory and importing data from a csv file
+
+cloud_wd <- getwd()
+setwd(cloud_wd)
+
+CD_balance <- read.csv(file = "CD_additional_balanced-1.csv", stringsAsFactors = FALSE)
+str(CD_balance)
+
+# Changing Categorical data to factors
+
+CD_balance$job <- factor(CD_balance$job)
+CD_balance$marital <- factor(CD_balance$marital)
+CD_balance$education <- factor(CD_balance$education)
+CD_balance$default <- factor(CD_balance$default)
+CD_balance$housing <- factor(CD_balance$housing)
+CD_balance$loan <- factor(CD_balance$loan)
+CD_balance$contact <- factor(CD_balance$contact)
+CD_balance$month <- factor(CD_balance$month)
+CD_balance$day_of_week <- factor(CD_balance$day_of_week)
+CD_balance$poutcome <- factor(CD_balance$poutcome)
+CD_balance$y <- factor(CD_balance$y)
+
+# Looking at the structure and summary of the data
+
+str(CD_balance)
+summary(CD_balance)
+
+```
+
+# Target Variable
+
+This R code chunk computes and displays the count and percentage distribution of the target variable 'y' within the 'CD_balance' dataset, aiding in understanding the relative frequencies of each level.
+
+```{r target variable}
+
+# Showing the count value and percentage value of y and it's levels
+
+CD_balance %>% select(y) %>% table()
+CD_balance %>% select(y) %>% table() %>% prop.table() %>% round(2) * 100
+
+```
+
+# Data Preperation
+
+In this portion we will prepare the data for modeling by partitioning it into training and test sets. We will first create a random partition using 70% of the data for training and 30% for testing. Finally, we will display the count and percentage distribution of the target variable 'y' within both the training and test sets, aiding in understanding their class distributions.
+
+```{r data preperation and partition}
+
+set.seed(100)  #Creating data partition by using 70% of data for the training set and 30% for the test set
+CD_Train <- createDataPartition(CD_balance$y, p=0.7, list=FALSE)
+
+length(CD_Train)
+class(CD_Train)
+
+train_set <- CD_balance[CD_Train,]  #spliting the dataset using the indexes
+test_set <- CD_balance[-CD_Train,]
+
+train_set %>% nrow()  #Showing number of rows in both train and test sets
+test_set %>% nrow()
+
+train_set %>% select(y) %>% table() #Showing the proportion of yes and no in y for training set
+train_set %>% select(y) %>% table() %>% prop.table() %>% round(2) * 100
+
+test_set %>% select(y) %>% table() #Showing the proportion of yes and no in y for training set
+test_set %>% select(y) %>% table() %>% prop.table() %>% round(2) * 100
+
+```
+
+# Training Decision Trees
+
+This R code chunk trains seven decision tree models using the C5.0 algorithm with different complexity factors (CF) on the provided training set. Each model is trained with a specific CF value, controlling the complexity of the resulting decision trees. The trained models are then displayed, providing insights into their structures and parameters.
+
+```{r Decision Trees}
+
+# Using the train set to train 7 C5.0 models
+
+trained_model1 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.97, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.97.
+trained_model1
+
+trained_model2 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.35, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.35.
+trained_model2
+
+trained_model3 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.12, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.12.
+trained_model3
+
+trained_model4 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.08, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.08.
+trained_model4
+
+trained_model5 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.04, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.04.
+trained_model5
+
+trained_model6 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.025, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.025.
+trained_model6
+
+trained_model7 <- C5.0(formula = y ~ .,data = train_set, control = C5.0Control(CF = 0.0005, earlyStopping = FALSE, noGlobalPruning = FALSE)) # Creating first decision tree for CF = 0.0005.
+trained_model7
+
+```
+
+# Decision Tree Model Information
+
+This R code chunk analyzes the size of each decision tree model trained in the previous step. It extracts the number of leaf nodes from each model and stores them in a vector, along with their corresponding complexity factor (CF) values. The size of each model is then displayed individually. Finally, it generates a visual representation of the decision tree with the lowest complexity (corresponding to the smallest number of leaf nodes), aiding in understanding the structure of the simplest model.
+
+```{r decision tree model info, fig.height=8, fig.width=20}
+
+#Showing the tree size for each model
+
+leaf_nodes_vector <- c(trained_model1$size,
+trained_model2$size,
+trained_model3$size,
+trained_model4$size,
+trained_model5$size,
+trained_model6$size,
+trained_model7$size)
+
+cf_vector <- c(0.97,0.35,0.12,0.08,0.04,0.025,0.0005)
+
+trained_model1$size
+trained_model2$size
+trained_model3$size
+trained_model4$size
+trained_model5$size
+trained_model6$size
+trained_model7$size
+
+plot(trained_model7)  #Plotting the least complex tree
+
+```
+
+
+The most complex tree is the trained_model1 with 327 leaf nodes due to a CF value of 0.97 while the least complex tree is trained_model7 with only 5 leaf nodes and a CF value of 0.0005
+
+The model will start by checking the value of nr.employed which if greater than 5076.2 than it will go to node 3 to check the value of duration otherwise it will go to node 2 and give the prediction as "yes". So, in this case as nr.employed is 6000 > 5076.2, the model will move to node 3 and check the value of duration which if less than 446, it will move to Node 4 and will check the value of month, otherwise it will give us the prediction of "yes". In our case, as duration = 500 > 446, we will get a prediction of "yes" for the target variable. Therefore, a customer with nr.employed = 600 and duration = 500 will be predicted as "yes" for y i.e. they have subscribed for a CD Deposit.
+
+
+# Generating Predictions for each model
+
+For each of the seven models, we will predict the target variable 'y' for both the training and test sets separately, storing the predictions in variables prefixed with 'model_X_train_predictions' and 'model_X_test_predictions', where 'X' represents the model number. These predictions can be further analyzed for evaluating the performance of each model on both the training and test data.
+
+```{r generate predictions for train and test}
+
+model_1_train_predictions <- predict(trained_model1,train_set)
+model_2_train_predictions <- predict(trained_model2,train_set)
+model_3_train_predictions <- predict(trained_model3,train_set)
+model_4_train_predictions <- predict(trained_model4,train_set)
+model_5_train_predictions <- predict(trained_model5,train_set)
+model_6_train_predictions <- predict(trained_model6,train_set)
+model_7_train_predictions <- predict(trained_model7,train_set)
+
+model_1_test_predictions <- predict(trained_model1,test_set)
+model_2_test_predictions <- predict(trained_model2,test_set)
+model_3_test_predictions <- predict(trained_model3,test_set)
+model_4_test_predictions <- predict(trained_model4,test_set)
+model_5_test_predictions <- predict(trained_model5,test_set)
+model_6_test_predictions <- predict(trained_model6,test_set)
+model_7_test_predictions <- predict(trained_model7,test_set)
+
+```
+
+# Generating Confusion Matrices for each Model
+
+In this R code, we will generate confusion matrices for all seven decision tree models on both the training and test sets. Each confusion matrix shows the counts of predicted versus observed values of the target variable 'y'. These matrices provide insight into the performance of each model in classifying the data correctly.
+
+```{r confusion matrices of all models}
+
+# Creating Confusion Matrix for 7 train sets
+Confusion_Matrix_train_1 <- table(predicted = model_1_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_1
+
+Confusion_Matrix_train_2 <- table(predicted = model_2_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_2
+
+Confusion_Matrix_train_3 <- table(predicted = model_3_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_3
+
+Confusion_Matrix_train_4 <- table(predicted = model_4_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_4
+
+Confusion_Matrix_train_5 <- table(predicted = model_5_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_5
+
+Confusion_Matrix_train_6 <- table(predicted = model_6_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_6
+
+Confusion_Matrix_train_7 <- table(predicted = model_7_train_predictions,
+                                  observed = train_set$y)
+Confusion_Matrix_train_7
+
+# Creating Confusion Matrix for 7 test sets
+Confusion_Matrix_test_1 <- table(predicted = model_1_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_1
+
+Confusion_Matrix_test_2 <- table(predicted = model_2_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_2
+
+Confusion_Matrix_test_3 <- table(predicted = model_3_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_3
+
+Confusion_Matrix_test_4 <- table(predicted = model_4_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_4
+
+Confusion_Matrix_test_5 <- table(predicted = model_5_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_5
+
+Confusion_Matrix_test_6 <- table(predicted = model_6_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_6
+
+Confusion_Matrix_test_7 <- table(predicted = model_7_test_predictions,
+                                  observed = test_set$y)
+Confusion_Matrix_test_7
+
+```
+
+# Generating Evaluation Metrics for each Model
+
+In this R code, we calculate various performance metrics for each of the seven decision tree models trained on the dataset. We compute metrics such as accuracy, precision, recall, and F1-score for both the training and test sets. The results are organized into vectors for each metric and then combined into a dataframe named 'df_metrics', providing a comprehensive overview of the performance of each model. Finally, we display the F1 scores for the training and test sets, along with the dataframe containing all metric results.
+
+```{r train set performance of all models}
+
+# creating vectors for all the train accuracy results.
+train_acc <- c(
+  mmetric(train_set$y, model_1_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_2_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_3_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_4_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_5_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_6_train_predictions, metric="ACC"),
+  mmetric(train_set$y, model_7_train_predictions, metric="ACC")
+  )
+
+# creating vectors for all the test accuracy results.
+test_acc <- c(
+  mmetric(test_set$y, model_1_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_2_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_3_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_4_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_5_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_6_test_predictions, metric = "ACC"),
+  mmetric(test_set$y, model_7_test_predictions, metric = "ACC")
+  )
+
+# creating vectors for all the train F1 results.
+train_F1 <- c(
+  mmetric(train_set$y, model_1_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_2_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_3_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_4_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_5_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_6_train_predictions, metric="F1"),
+  mmetric(train_set$y, model_7_train_predictions, metric="F1")
+  )
+
+# creating vectors for all the test F1 results.
+test_F1 <- c(
+  mmetric(test_set$y, model_1_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_2_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_3_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_4_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_5_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_6_test_predictions, metric = "F1"),
+  mmetric(test_set$y, model_7_test_predictions, metric = "F1")
+  )
+
+# creating vectors for all the train precision results.
+train_prec <- c(
+  mmetric(train_set$y, model_1_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_2_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_3_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_4_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_5_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_6_train_predictions, metric="PRECISION"),
+  mmetric(train_set$y, model_7_train_predictions, metric="PRECISION")
+  )
+
+# creating vectors for all the test precision results.
+test_prec <- c(
+  mmetric(test_set$y, model_1_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_2_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_3_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_4_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_5_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_6_test_predictions, metric = "PRECISION"),
+  mmetric(test_set$y, model_7_test_predictions, metric = "PRECISION")
+  )
+
+# creating vectors for all the train recall results.
+train_rec <- c(
+  mmetric(train_set$y, model_1_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_2_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_3_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_4_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_5_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_6_train_predictions, metric="TPR"),
+  mmetric(train_set$y, model_7_train_predictions, metric="TPR")
+  )
+
+# creating vectors for all the test recall results.
+test_rec <- c(
+  mmetric(test_set$y, model_1_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_2_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_3_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_4_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_5_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_6_test_predictions, metric = "TPR"),
+  mmetric(test_set$y, model_7_test_predictions, metric = "TPR")
+  )
+
+df_metrics <- data.frame(train_acc,test_acc,train_prec,test_prec,train_rec,test_rec,cf_vector,leaf_nodes_vector)
+
+# Calling out data sets for different metrices
+train_F1
+test_F1
+df_metrics
+
+```
+
+# Feature Importance by Model
+
+In this R code chunk, we extract feature importances for each of the seven decision tree models trained on the dataset using the C5.0 algorithm. By calling the C5imp() function on each trained model, we obtain the importance scores of features used by each model in making predictions. These scores provide insights into the relative importance of different features in determining the outcome variable 'y' within each decision tree model.
+
+```{r extract feature importances}
+
+C5imp(trained_model1)
+C5imp(trained_model2)
+C5imp(trained_model3)
+C5imp(trained_model4)
+C5imp(trained_model5)
+C5imp(trained_model6)
+C5imp(trained_model7)
+
+```
+
+
+The top 4 features in the majority of models were:
+
+1. nr.employed,
+
+2. duration, 
+
+3. month and 
+
+4. poutcome
+
+The 2 least important features were: previous and campaign
+
+
+# Reflections and Findings
+
+Q: How does changing the CF hyper parameter affect the model complexity?
+
+A: Decreasing the CF hyper parameter decreases the model complexity as seen in the code chunks above. The model created with 0.97 had a tree size of 327 while the model with a CF value of 5e-04 had a tree size of only 5. Hence, it can be deduced that CF is directly proportional to model complexity.
+
+Q: Which model had the best performance in Train set? What was the complexity for this model? How did this model perform in the Train set?
+
+A: Model with a CF value of 0.97 and a tree size of 327 had the best accuracy in train set with a value of 94.13%. Although the test accuracy for this model was significantly decreased when compared to other models with an accuracy of 86.35% from 94.13%.
+
+Q: Which model had the best performance in the Test set? What was the complexity for this model? How did this model perform in the Test set?
+
+A: Model with a CF value of 0.04 and a tree size of 23 leaf nodes had the highest accuracy in test set. It had a precision of 94.34% as well in the test set hence it performed better than other models in both accuracy and precision.
+
+Q: What is your conclusion about the relationship between model complexity and performance on the Train and Test sets?
+
+A: In general, it can be seen in the df_metrics dataset that highly complex models have a lower accuracy in test sets (possibly due to overfitting) as compare to less complex models. Although a fairly less complex model like the one with 5 nodes does not perform well in both train and test set as it's too simple to find patterns and insights in the data. Hence, a model with a middle CF value like between 0.04 to 0.35 for this case seems a good fit.
+
+Q: Which of the decision tree models is most complex?
+
+A: The most complex decision tree model is the first one "trained_model_1" with a CF value of 0.97 and tree size of 327 nodes.
+
+Q: Which of the decision tree models generalizes to the testing data set the least? 
+
+A: Model 1 with a CF value of 0.97 and tree size of 327 has the lowest accuracy in the test set hence "trained_model_1" generalizes to the testing data the least as it is overfitting the train set data.
+
+Q: Which two of the decision tree models underfit the training and testing data? Explain your reasons for choosing the decision trees.
+
+A: The models with the lowest CF value i.e. 5e-04 has the lowest training and testing accuracy as they only have 5 nodes making them the least complex model in the analysis. Due to there nature of simplifying tree, they miss crucial insights and patterns in the data, underfiting the training and testing data.
+
+Q: Take a long look at the test accuracy results: If you were taking these results to a meeting and were explaining how the model makes predictions which model would you choose? Another way of asking this: Which model is the most interpretable? 
+
+A: For a meeting where interpretability is a priority, we should prefer models that are simpler, easier to understand but also have a decent value for accuracy in the testing dataset. We need a balance between accuracy and interpretability hence out of the 7 models, we should select 'trained_model_5' with a CF value of 0.04 and a total of 23 nodes which is also a bit extensive (typically we would prefer something between 10 to 20 nodes max) but this is the best model in this job as it has a high accuracy of 88.14% in the test data as well.
+
